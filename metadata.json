@@ -1,6 +1,8 @@
 {
-  "name": "GAMA Kernel-Level Automation Engine & Field Diagnostic Station",
+  "name": "GAMA_KERNEL",
   "description": "Painel de controle industrial para diagnóstico térmico, mitigação de reinicialização em 5 minutos, comandos de engenharia reversa e otimização profunda para Windows 10 e 11.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

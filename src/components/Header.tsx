@@ -6,13 +6,15 @@ interface HeaderProps {
   setActiveTab: (tab: 'triage' | 'modules' | 'terminal' | 'usb') => void;
   onEmergencyAbort: () => void;
   abortCount: number;
+  isWindowsNative?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   onEmergencyAbort,
-  abortCount
+  abortCount,
+  isWindowsNative
 }) => {
   const [copiedNotification, setCopiedNotification] = useState(false);
 
@@ -98,6 +100,11 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Emergency Action Button */}
         <div className="flex items-center gap-3 shrink-0">
+          <div className="hidden lg:flex items-center gap-1.5 text-[11px] font-mono text-[#A1A1AA] bg-[#272727] px-2.5 py-1 rounded border border-[#52525B]/40">
+            <span className="w-2 h-2 rounded-full bg-[#88CE11]" />
+            <span>EXEC: {isWindowsNative ? 'WINDOWS NATIVO' : 'CONTAINER DEV'}</span>
+          </div>
+
           <button
             onClick={handleQuickAbort}
             title="Executa 'shutdown.exe /a' instantaneamente para cancelar desligamento programado"
