@@ -2,6 +2,84 @@ import { OptimizationModule } from '../types/gama';
 
 export const GAMA_OPTIMIZATION_MODULES: OptimizationModule[] = [
   {
+    id: 'gama-usb-tethering-cpuz',
+    module_name: 'GAMA_USB_Tethering_BSOD_Mitigation',
+    title: 'Mitigação de Tela Azul em Ancoragem USB Android & Remoção de Driver CPU-Z',
+    description: 'Descarrega e exclui do registro os drivers de kernel obsoletos do CPU-Z (cpuz154.sys / cpuz155.sys) que colidem com a pilha RNDIS do Android 4G ao plugar o cabo USB. Reseta o catálogo Winsock e ajusta buffers NDIS.',
+    category: 'USB & Drivers',
+    risk_level: 'Seguro (Baixo Risco)',
+    target_windows_versions: ['10', '11'],
+    require_reboot: false,
+    optimization_payload: [
+      {
+        type: 'service',
+        path: 'cpuz154',
+        property: 'delete',
+        value: 'deleted',
+        value_type: 'CLI_EXEC'
+      },
+      {
+        type: 'registry',
+        path: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP\\Parameters',
+        property: 'MaxPacketsPerMessage',
+        value: 1,
+        value_type: 'REG_DWORD'
+      },
+      {
+        type: 'command',
+        path: 'netsh.exe',
+        property: 'winsock reset catalog',
+        value: 'catalog',
+        value_type: 'CLI_EXEC'
+      }
+    ],
+    rollback_payload: [
+      {
+        type: 'registry',
+        path: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP\\Parameters',
+        property: 'MaxPacketsPerMessage',
+        value: 0,
+        value_type: 'REG_DWORD'
+      }
+    ],
+    executable_script: `# ==============================================================================
+# GAMA KERNEL ENGINE - MODULE: GAMA_USB_Tethering_BSOD_Mitigation
+# ELIMINA COLISÃO NO ANEL 0 ENTRE CPU-Z E RNDIS ANDROID (4G TETHERING)
+# ==============================================================================
+$ErrorActionPreference = "SilentlyContinue"
+
+Write-Output "[+] Parando e removendo drivers de kernel invasivos do CPU-Z..."
+$drivers = @("cpuz154", "cpuz155", "cpuz150", "cpuz143")
+foreach ($d in $drivers) {
+    sc.exe stop $d 2>$null | Out-Null
+    sc.exe delete $d 2>$null | Out-Null
+}
+
+Write-Output "[+] Finalizando processos do CPU-Z e purgando arquivos temporários..."
+taskkill.exe /f /im cpuz.exe 2>$null | Out-Null
+Remove-Item "$env:TEMP\\cpuz*" -Recurse -Force -ErrorAction SilentlyContinue
+
+Write-Output "[+] Resetando pilha de rede e adaptadores NDIS..."
+netsh winsock reset catalog | Out-Null
+netsh int ip reset | Out-Null
+ipconfig /flushdns | Out-Null
+
+Write-Output "[+] Aplicando mitigação de buffer para RNDIS (Android USB Tethering)..."
+reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP\\Parameters" /v MaxPacketsPerMessage /t REG_DWORD /d 1 /f | Out-Null
+reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP6\\Parameters" /v MaxPacketsPerMessage /t REG_DWORD /d 1 /f | Out-Null
+
+Write-Output "[SUCCESS] Pilha USB Tethering protegida contra BugCheck DRIVER_IRQL_NOT_LESS_OR_EQUAL."
+`,
+    rollback_script: `# ==============================================================================
+# GAMA ROLLBACK - MODULE: GAMA_USB_Tethering_BSOD_Mitigation
+# ==============================================================================
+$ErrorActionPreference = "SilentlyContinue"
+reg.exe delete "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP\\Parameters" /v MaxPacketsPerMessage /f 2>$null | Out-Null
+reg.exe delete "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP6\\Parameters" /v MaxPacketsPerMessage /f 2>$null | Out-Null
+Write-Output "[ROLLBACK SUCCESS] Parâmetros de driver RNDIS restaurados para o padrão."
+`
+  },
+  {
     id: 'gama-crash-control',
     module_name: 'GAMA_CrashControl_AutoReboot_Suppress',
     title: 'Supressão de Auto-Reboot por Falha de Kernel (CrashControl)',

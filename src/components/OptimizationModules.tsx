@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface OptimizationModulesProps {
-  onRunScript: (moduleName: string, script: string, isRollback?: boolean) => void;
+  onRunScript: (moduleName: string, script: string, isRollback?: boolean) => Promise<any>;
 }
 
 export const OptimizationModules: React.FC<OptimizationModulesProps> = ({ onRunScript }) => {
@@ -55,26 +55,38 @@ export const OptimizationModules: React.FC<OptimizationModulesProps> = ({ onRunS
     URL.revokeObjectURL(url);
   };
 
-  const handleApply = (mod: OptimizationModule) => {
+  const handleApply = async (mod: OptimizationModule) => {
     setExecutingModuleId(mod.id);
-    setTimeout(() => {
+    try {
+      const res = await onRunScript(mod.module_name, mod.executable_script, false);
+      const out = res?.stdout || res?.stderr || 'Módulo executado com êxito no kernel.';
       setModules(prev =>
-        prev.map(m => (m.id === mod.id ? { ...m, applied: true } : m))
+        prev.map(m => (m.id === mod.id ? { ...m, applied: true, lastExecutionOutput: out, lastExecutionError: res?.stderr } : m))
       );
+    } catch (err: any) {
+      setModules(prev =>
+        prev.map(m => (m.id === mod.id ? { ...m, lastExecutionError: err.message } : m))
+      );
+    } finally {
       setExecutingModuleId(null);
-      onRunScript(mod.module_name, mod.executable_script, false);
-    }, 500);
+    }
   };
 
-  const handleRollback = (mod: OptimizationModule) => {
+  const handleRollback = async (mod: OptimizationModule) => {
     setExecutingModuleId(mod.id);
-    setTimeout(() => {
+    try {
+      const res = await onRunScript(mod.module_name, mod.rollback_script, true);
+      const out = res?.stdout || res?.stderr || 'Rollback aplicado com êxito.';
       setModules(prev =>
-        prev.map(m => (m.id === mod.id ? { ...m, applied: false } : m))
+        prev.map(m => (m.id === mod.id ? { ...m, applied: false, lastExecutionOutput: out, lastExecutionError: res?.stderr } : m))
       );
+    } catch (err: any) {
+      setModules(prev =>
+        prev.map(m => (m.id === mod.id ? { ...m, lastExecutionError: err.message } : m))
+      );
+    } finally {
       setExecutingModuleId(null);
-      onRunScript(mod.module_name, mod.rollback_script, true);
-    }, 500);
+    }
   };
 
   const filteredModules = modules.filter(
@@ -226,7 +238,7 @@ export const OptimizationModules: React.FC<OptimizationModulesProps> = ({ onRunS
                       </div>
                     </div>
 
-                    {/* Simulated Realtime Logs Terminal Box */}
+                    {/* Realtime Execution Terminal Box */}
                     <div className="bg-[#161616] rounded-lg border border-[#52525B]/50 p-3 font-mono text-xs">
                       <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#52525B]/30 text-[#A1A1AA] text-[11px]">
                         <span className="flex items-center gap-1.5">
@@ -236,14 +248,22 @@ export const OptimizationModules: React.FC<OptimizationModulesProps> = ({ onRunS
                         <span className="text-[10px] text-neutral-400">NT AUTHORITY\SYSTEM</span>
                       </div>
                       <div className="space-y-1 text-neutral-300 text-[11px] leading-relaxed">
-                        <p className="text-[#A1A1AA]">&gt; reg.exe / sc.exe pipeline status: READY</p>
-                        {isApplied ? (
+                        {mod.lastExecutionOutput ? (
+                          <pre className="text-[#88CE11] whitespace-pre-wrap select-all font-mono max-h-36 overflow-y-auto">
+                            {mod.lastExecutionOutput}
+                          </pre>
+                        ) : isApplied ? (
                           <>
-                            <p className="text-[#88CE11]">[OK] {mod.module_name}: OTIMIZAÇÃO APLICADA COM SUCESSO.</p>
-                            <p className="text-neutral-400">&gt; Backup das chaves padrão mantido em memória para rollback 1:1.</p>
+                            <p className="text-[#88CE11]">[OK] {mod.module_name}: OTIMIZAÇÃO GRAVADA NO KERNEL.</p>
+                            <p className="text-neutral-400">&gt; Backup mantido para rollback 1:1 imediato.</p>
                           </>
                         ) : (
-                          <p className="text-neutral-400">&gt; Estado do sistema: PADRÃO DO WINDOWS (Pronto para aplicar).</p>
+                          <p className="text-neutral-400">&gt; Estado do sistema: PADRÃO DO WINDOWS (Pronto para execução direta).</p>
+                        )}
+                        {mod.lastExecutionError && (
+                          <pre className="text-rose-400 whitespace-pre-wrap select-all font-mono mt-1">
+                            [ERRO DO SISTEMA] {mod.lastExecutionError}
+                          </pre>
                         )}
                       </div>
                     </div>

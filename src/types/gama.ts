@@ -11,7 +11,7 @@ export interface OptimizationModule {
   module_name: string;
   title: string;
   description: string;
-  category: 'Kernel & Crash' | 'Thermal & Power' | 'Telemetry & Privacy' | 'Storage & Integrity' | 'Network' | 'Latency & Gaming';
+  category: 'Kernel & Crash' | 'Thermal & Power' | 'Telemetry & Privacy' | 'Storage & Integrity' | 'Network' | 'Latency & Gaming' | 'USB & Drivers';
   risk_level: 'Seguro (Baixo Risco)' | 'Intermediário' | 'Avançado / Kernel';
   target_windows_versions: string[];
   require_reboot: boolean;
@@ -20,6 +20,8 @@ export interface OptimizationModule {
   executable_script: string;
   rollback_script: string;
   applied?: boolean;
+  lastExecutionOutput?: string;
+  lastExecutionError?: string;
 }
 
 export interface DiagnosticItem {
@@ -32,15 +34,15 @@ export interface DiagnosticItem {
   diagnosticCommand: string;
   emergencyFixCommand: string;
   rollbackCommand: string;
-  status: 'idle' | 'testing' | 'detected' | 'mitigated';
-  simulatedOutput: string;
-  fixOutput: string;
+  status: 'idle' | 'testing' | 'executed' | 'error';
+  lastOutput?: string;
+  lastError?: string;
 }
 
 export interface TerminalCommand {
   id: string;
   title: string;
-  category: 'Hardware & Térmico' | 'Rede & TCP/IP' | 'Disco & Arquivos' | 'Registro & Tweaks' | 'Processos & Watchdogs' | 'Windows 11 OOBE/Bypass';
+  category: 'Hardware & Térmico' | 'Rede & TCP/IP' | 'Disco & Arquivos' | 'Registro & Tweaks' | 'Processos & Watchdogs' | 'Windows 11 OOBE/Bypass' | 'USB Tethering & Drivers';
   command: string;
   description: string;
   elevation: boolean;
@@ -53,4 +55,5 @@ export interface LogEntry {
   timestamp: string;
   type: 'info' | 'success' | 'warning' | 'error' | 'cmd';
   text: string;
+  executionTimeMs?: number;
 }

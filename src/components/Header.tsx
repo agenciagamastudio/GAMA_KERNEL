@@ -5,23 +5,33 @@ interface HeaderProps {
   activeTab: 'triage' | 'modules' | 'terminal' | 'usb';
   setActiveTab: (tab: 'triage' | 'modules' | 'terminal' | 'usb') => void;
   onEmergencyAbort: () => void;
+  onTetheringMitigate: () => void;
   abortCount: number;
   isWindowsNative?: boolean;
+  isAdmin?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   onEmergencyAbort,
+  onTetheringMitigate,
   abortCount,
-  isWindowsNative
+  isWindowsNative,
+  isAdmin
 }) => {
-  const [copiedNotification, setCopiedNotification] = useState(false);
+  const [copiedNotification, setCopiedNotification] = useState<string | null>(null);
 
   const handleQuickAbort = () => {
     onEmergencyAbort();
-    setCopiedNotification(true);
-    setTimeout(() => setCopiedNotification(false), 2500);
+    setCopiedNotification('Comando shutdown /a disparado diretamente no kernel do Windows.');
+    setTimeout(() => setCopiedNotification(null), 3000);
+  };
+
+  const handleQuickTethering = () => {
+    onTetheringMitigate();
+    setCopiedNotification('Protocolo de mitigação USB Tethering / Remoção de CPU-Z disparado.');
+    setTimeout(() => setCopiedNotification(null), 3000);
   };
 
   return (
@@ -98,12 +108,22 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </nav>
 
-        {/* Zone 3: Emergency Action Button */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="hidden lg:flex items-center gap-1.5 text-[11px] font-mono text-[#A1A1AA] bg-[#272727] px-2.5 py-1 rounded border border-[#52525B]/40">
-            <span className="w-2 h-2 rounded-full bg-[#88CE11]" />
-            <span>EXEC: {isWindowsNative ? 'WINDOWS NATIVO' : 'CONTAINER DEV'}</span>
+        {/* Zone 3: Emergency Action Buttons & Privilege Status */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-mono text-[#A1A1AA] bg-[#272727] px-2.5 py-1 rounded border border-[#52525B]/40">
+            <span className={`w-2 h-2 rounded-full ${isAdmin ? 'bg-[#88CE11]' : 'bg-amber-400'}`} />
+            <span>{isAdmin ? 'ADMIN ELEVADO' : 'USER'}</span>
           </div>
+
+          {/* New Prominent Tethering Mitigation Button */}
+          <button
+            onClick={handleQuickTethering}
+            title="Remove drivers cpuz154/cpuz155 e reseta pilha RNDIS para impedir tela azul ao conectar celular"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg bg-[#272727] text-amber-400 border border-amber-400/50 hover:bg-amber-400/10 active:scale-95 transition-all whitespace-nowrap cursor-pointer"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+            <span>ANTI-BSOD TETHERING (CPU-Z)</span>
+          </button>
 
           <button
             onClick={handleQuickAbort}
@@ -111,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg bg-[#88CE11] text-[#161616] hover:bg-[#9deb17] active:scale-95 transition-all shadow-md whitespace-nowrap cursor-pointer"
           >
             <Cpu className="w-4 h-4 text-[#161616]" />
-            <span>ABORTAR SHUTDOWN (shutdown /a)</span>
+            <span>ABORTAR SHUTDOWN</span>
             {abortCount > 0 && (
               <span className="ml-1 px-1.5 py-0.2 bg-[#161616] text-[#88CE11] text-[10px] rounded-full font-mono">
                 {abortCount}x
@@ -125,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="max-w-7xl mx-auto mt-2">
           <div className="bg-[#272727] border border-[#88CE11]/50 text-white text-xs px-3 py-1.5 rounded flex items-center gap-2 animate-fadeIn">
             <CheckCircle2 className="w-4 h-4 text-[#88CE11]" />
-            <span>Comando <strong className="font-mono text-[#88CE11]">shutdown /a</strong> disparado no kernel. Qualquer temporizador ativo de encerramento foi abortado!</span>
+            <span>{copiedNotification}</span>
           </div>
         </div>
       )}

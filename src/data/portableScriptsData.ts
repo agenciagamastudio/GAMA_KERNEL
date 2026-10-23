@@ -64,6 +64,16 @@ powercfg /setactive scheme_current >nul 2>&1
 
 echo [*] Purgando estado corrompido de Fast Startup (powercfg -h off)...
 powercfg.exe -h off >nul 2>&1
+
+echo [*] Exterminando drivers de kernel do CPU-Z e protegendo USB Tethering...
+sc.exe stop cpuz154 >nul 2>&1
+sc.exe delete cpuz154 >nul 2>&1
+sc.exe stop cpuz155 >nul 2>&1
+sc.exe delete cpuz155 >nul 2>&1
+taskkill.exe /f /im cpuz.exe >nul 2>&1
+del /f /q "%temp%\cpuz*.sys" >nul 2>&1
+reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\RNDISMP\Parameters" /v MaxPacketsPerMessage /t REG_DWORD /d 1 /f >nul 2>&1
+
 echo [OK] Kernel estabilizado. A maquina NAO ira reiniciar agora.
 echo.
 

@@ -201,5 +201,27 @@ export const GAMA_TERMINAL_MACETES: TerminalCommand[] = [
     elevation: true,
     dangerLevel: 'Baixo',
     practicalTip: 'Roda em segundo plano e reconstrói o catálogo AppX danificado por ferramentas genéricas de debloat.'
+  },
+
+  // 7. USB Tethering & Drivers
+  {
+    id: 'cmd-delete-cpuz-driver',
+    title: 'Exterminar Driver de Kernel Invasivo do CPU-Z (cpuz154/cpuz155)',
+    category: 'USB Tethering & Drivers',
+    command: `sc.exe stop cpuz154 & sc.exe delete cpuz154 & sc.exe stop cpuz155 & sc.exe delete cpuz155 & taskkill /f /im cpuz.exe & del /f /q "%temp%\\cpuz*.sys" 2>nul`,
+    description: 'Remove o serviço de ring-0 do CPU-Z registrado em tempo de execução que colide com adaptadores NDIS e causa BSOD instantâneo.',
+    elevation: true,
+    dangerLevel: 'Baixo',
+    practicalTip: 'Executar sempre antes de conectar a ancoragem USB (4G/5G) de celulares Android em PCs onde programas de monitoramento de hardware foram usados.'
+  },
+  {
+    id: 'cmd-reset-rndis-tethering',
+    title: 'Resetar Pilha NDIS / RNDIS e Ajustar Buffers de Ancoragem USB',
+    category: 'USB Tethering & Drivers',
+    command: `reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP\\Parameters" /v MaxPacketsPerMessage /t REG_DWORD /d 1 /f & netsh winsock reset catalog & netsh int ip reset`,
+    description: 'Aplica a correção oficial para evitar o estouro de buffer de pacotes em drivers RNDIS quando o Android envia tráfego TCP em alta velocidade.',
+    elevation: true,
+    dangerLevel: 'Baixo',
+    practicalTip: 'Elimina o BugCheck DRIVER_IRQL_NOT_LESS_OR_EQUAL no arquivo rndismpx.sys ou usb8023.sys.'
   }
 ];

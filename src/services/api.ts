@@ -4,6 +4,8 @@ export interface CommandResponse {
   exitCode: number;
   platform: string;
   isWindows: boolean;
+  isAdmin: boolean;
+  executionTimeMs: number;
 }
 
 export interface SystemStatus {
@@ -11,54 +13,59 @@ export interface SystemStatus {
   hostname: string;
   uptime: number;
   cpus: number;
+  cpuModel: string;
   totalMemoryGB: string;
   freeMemoryGB: string;
+  usedMemoryPercent: number;
   isWindows: boolean;
+  isAdmin: boolean;
+  activeInterfaces: string[];
 }
 
 export async function executeKernelApi(
   command: string,
   shell: 'powershell' | 'cmd' = 'powershell'
 ): Promise<CommandResponse> {
-  try {
-    const res = await fetch('/api/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command, shell }),
-    });
+  const res = await fetch('/api/execute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, shell }),
+  });
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `HTTP ${res.status}`);
-    }
-
-    return await res.json();
-  } catch (err: any) {
-    // If backend is momentarily unreachable, return structured fallback
-    return {
-      stdout: `[GAMA KERNEL - FALLBACK]\nComando despachado: ${command}\nRetorno: Concluído com código 0.`,
-      stderr: err.message || '',
-      exitCode: 0,
-      platform: 'local',
-      isWindows: false,
-    };
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `HTTP ${res.status}`);
   }
+
+  return await res.json();
 }
 
-export async function abortShutdownApi(): Promise<{ success: boolean; message: string; details?: any }> {
-  try {
-    const res = await fetch('/api/abort-shutdown', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    return await res.json();
-  } catch (err: any) {
-    return {
-      success: true,
-      message: 'shutdown /a executado com sucesso.',
-      details: { stdout: '[OK] shutdown /a executado no kernel.', stderr: '', exitCode: 0 }
-    };
+export async function abortShutdownApi(): Promise<{ success: boolean; message: string; details?: CommandResponse }> {
+  const res = await fetch('/api/abort-shutdown', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `HTTP ${res.status}`);
   }
+
+  return await res.json();
+}
+
+export async function applyTetheringMitigationApi(): Promise<{ success: boolean; message: string; details?: CommandResponse }> {
+  const res = await fetch('/api/tethering-mitigation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `HTTP ${res.status}`);
+  }
+
+  return await res.json();
 }
 
 export async function getSystemStatusApi(): Promise<SystemStatus | null> {

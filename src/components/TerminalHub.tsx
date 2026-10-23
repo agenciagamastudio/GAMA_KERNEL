@@ -8,27 +8,29 @@ import {
   Play, 
   Terminal, 
   ShieldAlert, 
-  Info, 
   Lightbulb,
   Wifi,
   HardDrive,
   Cpu,
   Settings,
   Activity,
-  Layers
+  Layers,
+  Smartphone
 } from 'lucide-react';
 
 interface TerminalHubProps {
-  onRunInConsole: (title: string, cmd: string, output: string) => void;
+  onRunInConsole: (title: string, cmd: string) => Promise<any>;
 }
 
 export const TerminalHub: React.FC<TerminalHubProps> = ({ onRunInConsole }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [runningId, setRunningId] = useState<string | null>(null);
 
   const categories = [
     { id: 'all', label: 'Todos os Macetes', icon: Terminal },
+    { id: 'USB Tethering & Drivers', label: 'USB Tethering & Drivers', icon: Smartphone },
     { id: 'Hardware & Térmico', label: 'Hardware & Térmico', icon: Cpu },
     { id: 'Rede & TCP/IP', label: 'Rede & TCP/IP', icon: Wifi },
     { id: 'Disco & Arquivos', label: 'Disco & Arquivos', icon: HardDrive },
@@ -43,13 +45,13 @@ export const TerminalHub: React.FC<TerminalHubProps> = ({ onRunInConsole }) => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSimulate = (item: TerminalCommand) => {
-    const simulatedResponse = `[NT AUTHORITY\\SYSTEM] Invocando comando cirúrgico...
-PS C:\\Windows\\system32> ${item.command}
-[STATUS] Código de saída: 0 (Sucesso).
-[INFO GAMA] ${item.practicalTip}`;
-
-    onRunInConsole(item.title, item.command, simulatedResponse);
+  const handleExecute = async (item: TerminalCommand) => {
+    setRunningId(item.id);
+    try {
+      await onRunInConsole(item.title, item.command);
+    } finally {
+      setRunningId(null);
+    }
   };
 
   const filteredCommands = GAMA_TERMINAL_MACETES.filter(cmd => {
@@ -69,10 +71,10 @@ PS C:\\Windows\\system32> ${item.command}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-white tracking-tight">
-              Repositório Interno de Macetes &amp; Comandos Nativos de Terminal
+              Repositório Operacional de Macetes &amp; Comandos Nativos de Terminal
             </h2>
             <p className="text-sm text-[#A1A1AA]">
-              O canivete suíço definitivo para assistência técnica em campo: comandos puros do Windows (sem downloads ou instaladores).
+              O canivete suíço definitivo para bancada: comandos de engenharia reversa do Windows executados diretamente via child_process.
             </p>
           </div>
 
@@ -82,7 +84,7 @@ PS C:\\Windows\\system32> ${item.command}
               type="text"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Buscar por wifi, temperatura, tpm, sfc..."
+              placeholder="Buscar por tethering, cpuz, wifi, tpm, sfc..."
               className="w-full bg-[#161616] border border-[#52525B] rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-[#A1A1AA] focus:outline-none focus:border-[#88CE11]"
             />
           </div>
@@ -120,6 +122,7 @@ PS C:\\Windows\\system32> ${item.command}
         ) : (
           filteredCommands.map(cmd => {
             const isCopied = copiedId === cmd.id;
+            const isRunning = runningId === cmd.id;
 
             return (
               <div
@@ -135,7 +138,7 @@ PS C:\\Windows\\system32> ${item.command}
                       {cmd.elevation && (
                         <span className="text-[10px] font-mono text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 flex items-center gap-1">
                           <ShieldAlert className="w-3 h-3" />
-                          REQUER ADMIN
+                          ADMIN ELEVADO
                         </span>
                       )}
                     </div>
@@ -146,11 +149,12 @@ PS C:\\Windows\\system32> ${item.command}
 
                   <div className="flex items-center gap-2 shrink-0 self-end lg:self-auto">
                     <button
-                      onClick={() => handleSimulate(cmd)}
+                      onClick={() => handleExecute(cmd)}
+                      disabled={isRunning}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[#161616] text-white border border-[#52525B] hover:border-[#88CE11] transition-colors cursor-pointer"
                     >
                       <Play className="w-3 h-3 text-[#88CE11]" />
-                      <span>Simular Execução</span>
+                      <span>{isRunning ? 'Executando no Host...' : 'Executar no Host'}</span>
                     </button>
 
                     <button

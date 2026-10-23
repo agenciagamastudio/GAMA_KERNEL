@@ -2,12 +2,36 @@ import { DiagnosticItem } from '../types/gama';
 
 export const FIVE_MINUTE_REBOOT_TRIAGE: DiagnosticItem[] = [
   {
+    id: 'triage-usb-tethering-cpuz',
+    title: 'Tela Azul ao Conectar Ancoragem USB Android (Conflito CPU-Z Driver / RNDIS)',
+    suspectCause: 'Colisão no anel 0 entre o driver de kernel residual do CPU-Z (cpuz154.sys / cpuz155.sys) e o driver de ancoragem de rede USB do Android (RNDIS/NDIS). Provoca DRIVER_IRQL_NOT_LESS_OR_EQUAL imediato ao plugar o cabo.',
+    probability: 'Crítica (90%+ se plugar celular)',
+    timeframe: 'Instantâneo no momento em que a ancoragem USB (4G) é ativada no celular.',
+    description: 'Verifica serviços do CPU-Z instalados no sistema, encerra instâncias residentes, remove o serviço do kernel e purga o cache de rede RNDIS.',
+    diagnosticCommand: `Get-Service -Name "cpuz*" -ErrorAction SilentlyContinue | Format-Table Name, Status, StartType
+Get-Item -Path "C:\\Windows\\Temp\\cpuz*", "$env:TEMP\\cpuz*" -ErrorAction SilentlyContinue | Select-Object FullName
+Get-PnpDevice -Class "Net" | Where-Object { $_.FriendlyName -like "*RNDIS*" -or $_.FriendlyName -like "*Remote NDIS*" } | Format-Table Status, FriendlyName, InstanceId`,
+    emergencyFixCommand: `sc.exe stop cpuz154 2>$null; sc.exe delete cpuz154 2>$null
+sc.exe stop cpuz155 2>$null; sc.exe delete cpuz155 2>$null
+sc.exe stop cpuz150 2>$null; sc.exe delete cpuz150 2>$null
+taskkill.exe /f /im cpuz.exe 2>$null
+Remove-Item "$env:TEMP\\cpuz*" -Recurse -Force -ErrorAction SilentlyContinue
+netsh winsock reset catalog
+netsh int ip reset
+ipconfig /flushdns
+reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP\\Parameters" /v MaxPacketsPerMessage /t REG_DWORD /d 1 /f
+reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP6\\Parameters" /v MaxPacketsPerMessage /t REG_DWORD /d 1 /f`,
+    rollbackCommand: `reg.exe delete "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP\\Parameters" /v MaxPacketsPerMessage /f 2>$null
+reg.exe delete "HKLM\\SYSTEM\\CurrentControlSet\\Services\\RNDISMP6\\Parameters" /v MaxPacketsPerMessage /f 2>$null`,
+    status: 'idle'
+  },
+  {
     id: 'triage-thermal-trip',
     title: 'Disparo de Proteção Térmica da CPU (TJMax Trip / Pasta Seca / Fan Travado)',
     suspectCause: 'Superaquecimento do processador (>95°C a 105°C). Placa-mãe aciona desligamento de emergência via PROCHOT# para salvar o silício.',
     probability: 'Crítica (80%+)',
     timeframe: 'Ocorre entre 3 e 5 minutos após o boot com a elevação gradual da temperatura ambiente do cooler.',
-    description: 'Diagnostica temperatura da ACPI, eventos de throttling severo (ID 37) e aplica contenção de emergência travando o clock da CPU em 85% para estabilizar sem abrir o PC.',
+    description: 'Diagnostica temperatura da ACPI, eventos de throttling severo (ID 37) e aplica contenção travando o clock da CPU em 85% para estabilizar sem abrir o PC.',
     diagnosticCommand: `Get-CimInstance -Namespace "root/wmi" -ClassName "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue | Select-Object InstanceName, @{N="Temp_Celsius";E={($_.CurrentTemperature - 2732)/10}}
 Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Kernel-Processor-Power'; Id=37} -MaxEvents 5 -ErrorAction SilentlyContinue | Format-Table TimeCreated, Message`,
     emergencyFixCommand: `powercfg -setacvalueindex scheme_current sub_processor PROCPERFMAX 85
@@ -17,17 +41,7 @@ powercfg /setactive scheme_current`,
     rollbackCommand: `powercfg -setacvalueindex scheme_current sub_processor PROCPERFMAX 100
 powercfg -setdcvalueindex scheme_current sub_processor PROCPERFMAX 100
 powercfg /setactive scheme_current`,
-    status: 'idle',
-    simulatedOutput: `[ACPI PROBE]
-InstanceName: ACPI\\ThermalZone\\TZ00_0
-Temp_Celsius: 98.4 °C  <-- ALERTA CRITICO: PROXIMO DO LIMITE TJMAX!
-
-[KERNEL-PROCESSOR-POWER ID 37 DETECTED]
-TimeCreated: 23/10/2026 14:32:10
-Message: A velocidade do processador 0 no grupo 0 esta sendo limitada pelo firmware do sistema.`,
-    fixOutput: `[+] Limite do processador travado em 85% (Turbo Boost neutralizado).
-[+] Queda termica imediata estimada: -18°C a -25°C.
-[SUCCESS] Maquina estabilizada contra desligamento por TJMax.`
+    status: 'idle'
   },
   {
     id: 'triage-autoreboot-bsod',
@@ -42,21 +56,12 @@ Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Window
 reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\CrashControl" /v CrashDumpEnabled /t REG_DWORD /d 3 /f
 wmic recoveros set autoreboot = false`,
     rollbackCommand: `reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\CrashControl" /v AutoReboot /t REG_DWORD /d 1 /f`,
-    status: 'idle',
-    simulatedOutput: `[REGISTRY CHECK]
-AutoReboot: 1 (ATIVO - Reinicia a maquina sem exibir o erro!)
-CrashDumpEnabled: 7
-
-[HISTORICO DE CRASH]
-Ultimo BugcheckCode: 0x0000003b (SYSTEM_SERVICE_EXCEPTION)`,
-    fixOutput: `[+] AutoReboot setado para 0.
-[+] Salvo dump em C:\\Windows\\Minidump.
-[SUCCESS] Se houver falha, o Windows congelara na tela azul com o nome do arquivo .sys causador.`
+    status: 'idle'
   },
   {
     id: 'triage-scheduled-shutdown',
     title: 'Loop de Tarefa Agendada / Windows Update / Timer Forçado de Desligamento',
-    suspectCause: 'Windows Update Orchestrator, falha de ativação (grace period expirado que desliga a cada 2h ou 5min) ou script de encerramento em fila.',
+    suspectCause: 'Windows Update Orchestrator, falha de ativação (grace period expirado que desliga a cada 5min) ou script de encerramento em fila.',
     probability: 'Alta (60%)',
     timeframe: 'Temporizador fixo de 300 segundos (5 minutos) disparado pelo serviço de atualização ou política local.',
     description: 'Executa cancelamento imediato de shutdown (shutdown -a) e desabilita tarefas agendadas de reboot forçado.',
@@ -68,14 +73,7 @@ sc.exe config wuauserv start=disabled
 schtasks /change /tn "\\Microsoft\\Windows\\UpdateOrchestrator\\Reboot" /disable`,
     rollbackCommand: `sc.exe config wuauserv start=demand
 schtasks /change /tn "\\Microsoft\\Windows\\UpdateOrchestrator\\Reboot" /enable`,
-    status: 'idle',
-    simulatedOutput: `[EVENT LOG 1074 - RECENT REBOOT INITIATOR]
-TimeCreated: 23/10/2026 14:28:44
-Message: O processo C:\\Windows\\system32\\shutdown.exe iniciou o desligamento do computador em nome do usuario NT AUTHORITY\\SYSTEM pela razao: Manutencao de Sistema ou Atualizacao pendente.`,
-    fixOutput: `[+] shutdown -a executado com sucesso (qualquer temporizador ativo foi cancelado).
-[+] Servico wuauserv desativado temporariamente.
-[+] Tarefa de Reboot do UpdateOrchestrator bloqueada.
-[SUCCESS] Temporizador de desligamento abortado.`
+    status: 'idle'
   },
   {
     id: 'triage-faststartup-hiber',
@@ -90,13 +88,7 @@ Get-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manag
 reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power" /v HiberbootEnabled /t REG_DWORD /d 0 /f`,
     rollbackCommand: `powercfg -h on
 reg.exe add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power" /v HiberbootEnabled /t REG_DWORD /d 1 /f`,
-    status: 'idle',
-    simulatedOutput: `[FAST STARTUP STATUS]
-HiberbootEnabled: 1 (Ativo)
-hiberfil.sys presente: 12.8 GB em uso no drive C:`,
-    fixOutput: `[+] powercfg -h off executado.
-[+] hiberfil.sys purgado com sucesso.
-[SUCCESS] O Windows agora inicializara de forma limpa, eliminando ciclos de memoria corrompida.`
+    status: 'idle'
   },
   {
     id: 'triage-kernel-power-41',
@@ -109,13 +101,6 @@ hiberfil.sys presente: 12.8 GB em uso no drive C:`,
     emergencyFixCommand: `powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e
 powercfg -setacvalueindex scheme_current sub_processor PROCPERFMAX 80`,
     rollbackCommand: `powercfg -setacvalueindex scheme_current sub_processor PROCPERFMAX 100`,
-    status: 'idle',
-    simulatedOutput: `[KERNEL-POWER ID 41 LOG ANALYSIS]
-TimeCreated: 23/10/2026 14:15:02
-BugcheckCode: 0 (INDICA QUEDA DE ENERGIA INSTANTANEA / HARDWARE OU FONTE)
-Diagnostico GAMA: A placa perdeu alimentacao subitamente. Reduzir consumo de pico imediatamente.`,
-    fixOutput: `[+] Modo de energia setado para equilibrado com teto de 80% de TDP.
-[+] Demanda de corrente do circuito VRM/Fonte reduzida em ~30%.
-[SUCCESS] Carga eletrica estabilizada.`
+    status: 'idle'
   }
 ];
